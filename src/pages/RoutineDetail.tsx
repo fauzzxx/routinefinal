@@ -31,7 +31,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { requestGenerateAnimation } from "@/integrations/ai/hf";
+import { requestGenerateAnimation } from "@/integrations/ai/video";
 import { Film } from "lucide-react";
 
 interface Flashcard {

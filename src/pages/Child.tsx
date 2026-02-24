@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Volume2, Play, ChevronLeft, ChevronRight, Video, Film } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { requestGenerateAnimation } from "@/integrations/ai/hf";
+import { requestGenerateAnimation } from "@/integrations/ai/video";
 import { demoStore } from "@/integrations/demo/store";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useLanguage } from "@/contexts/LanguageContext";

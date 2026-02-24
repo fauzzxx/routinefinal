@@ -1,6 +1,6 @@
 import os
 import logging
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from urllib.parse import unquote
@@ -77,32 +77,34 @@ async def get_recording(filename: str):
 
 @app.post("/api/generate-animation")
 @app.post("/generate-animation")
-async def generate_animation(prompt: str):
-    print(f"➜ Matching prompt: '{prompt}'", flush=True)
-    
-    # Fuzzy matching logic
-    pl = prompt.lower().strip()
+async def generate_animation(prompt: str = Query(..., description="Step text to match to a video")):
+    """Match prompt to a pre-recorded video. No external models – prompt-to-video mapping only."""
+    pl = (prompt or "").lower().strip()
     fname = None
     for keyword, video_file in sorted(PROMPT_TO_VIDEO.items(), key=lambda x: -len(x[0])):
         if keyword in pl:
             fname = video_file
             break
-    
     if not fname:
-        # One last try: individual words match
         words = [w for w in pl.replace(".", " ").replace(",", " ").split() if len(w) >= 3]
         for word in words:
             for keyword, video_file in PROMPT_TO_VIDEO.items():
                 if word in keyword:
                     fname = video_file
                     break
-            if fname: break
-            
+            if fname:
+                break
     if not fname:
-        print(f"  ❓ No match found for: '{prompt}'", flush=True)
-        raise HTTPException(status_code=404, detail=f"No video found for: {prompt}")
-    
-    print(f"  ✨ Found: {fname}", flush=True)
+        raise HTTPException(
+            status_code=404,
+            detail="No video found for this step. Try phrases like 'wake up', 'brush teeth', 'get dressed', 'eat breakfast', 'read a book'.",
+        )
+    file_path = os.path.join(RECORDINGS_DIR, fname)
+    if not os.path.isfile(file_path):
+        raise HTTPException(
+            status_code=404,
+            detail="Video file not available on this server. Add recordings to the api/recordings folder.",
+        )
     return {"video_path": f"/api/recordings/{fname}"}
 
 handler = Mangum(app)
