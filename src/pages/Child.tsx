@@ -191,7 +191,7 @@ export default function Child() {
       const res = await requestGenerateAnimation(prompt);
       const url = res.video_path;
       if (!url) {
-        toast.error("No recording found for this step");
+        toast.error("No video found for this step");
         return;
       }
       if (useDemoStore) {
@@ -204,9 +204,9 @@ export default function Child() {
       const cIdx = updatedRoutines[rIdx].flashcards.findIndex(f => f.id === card.id);
       if (cIdx !== -1) updatedRoutines[rIdx].flashcards[cIdx] = { ...card, video_url: url };
       setRoutines(updatedRoutines);
-      toast.success("Recording attached!");
+      toast.success("AI video attached!");
     } catch (e: unknown) {
-      toast.error((e as Error)?.message ?? "Could not load recording");
+      toast.error((e as Error)?.message ?? "Could not generate video");
     } finally {
       setLoadingRecording(false);
     }
@@ -373,7 +373,7 @@ export default function Child() {
                         className="flex-1 min-w-[7rem] rounded-2xl h-14 font-fredoka text-lg shadow-cartoon border-2 border-primary/30 text-primary"
                       >
                         <Film className={`w-5 h-5 sm:w-6 sm:h-6 mr-2 shrink-0 ${loadingRecording ? "animate-spin" : ""}`} />
-                        {loadingRecording ? "Loading..." : "generate ai video"}
+                        {loadingRecording ? "Generating..." : "Generate AI video"}
                       </Button>
                     )}
                     <Button

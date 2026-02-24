@@ -281,7 +281,7 @@ export default function RoutineDetail() {
       const res = await requestGenerateAnimation(prompt);
       const url = res.video_path;
       if (!url) {
-        toast.error("No recording found for this step");
+        toast.error("No video found for this step");
         return;
       }
       if (useDemoStore) {
@@ -296,9 +296,9 @@ export default function RoutineDetail() {
       setFlashcards(prev =>
         prev.map(f => (f.id === fc.id ? { ...f, video_url: url } : f))
       );
-      toast.success("Recording attached!");
+      toast.success("AI video attached!");
     } catch (e: unknown) {
-      toast.error((e as Error)?.message ?? "Could not load recording");
+      toast.error((e as Error)?.message ?? "Could not generate video");
     } finally {
       setLoadingRecordingByCard(prev => ({ ...prev, [fc.id]: false }));
     }
@@ -450,7 +450,7 @@ export default function RoutineDetail() {
                             onClick={() => handleUseRecording(currentCard)}
                           >
                             <Film className={`w-4 h-4 mr-2 ${loadingRecordingByCard[currentCard.id] ? "animate-spin" : ""}`} />
-                            {loadingRecordingByCard[currentCard.id] ? "Loading..." : "Use my recording"}
+                            {loadingRecordingByCard[currentCard.id] ? "Generating..." : "Generate AI video"}
                           </Button>
                         )}
                         <Button

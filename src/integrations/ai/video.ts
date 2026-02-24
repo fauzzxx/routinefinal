@@ -22,7 +22,14 @@ export async function requestGenerateAnimation(
     } catch {
       /* use text as-is */
     }
-    throw new Error(message || `Failed to load recording (${res.status})`);
+    if (
+      res.status >= 500 ||
+      /FUNCTION_INVOCATION_FAILED|server error|invocation failed/i.test(message)
+    ) {
+      message =
+        "Video service unavailable. Run the app with a local backend (npm run server) or ensure api/recordings is deployed.";
+    }
+    throw new Error(message || `Failed to generate video (${res.status})`);
   }
   return res.json();
 }
