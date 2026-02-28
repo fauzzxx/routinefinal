@@ -3,7 +3,7 @@ import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Navigation } from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowLeft, Volume2, Play, Calendar, Clock, Video } from "lucide-react";
+import { ArrowLeft, Volume2, Play, Calendar, Clock, Video, Award, Film } from "lucide-react";
 import { toast } from "sonner";
 import { supabase, isSupabaseConfigured } from "@/integrations/supabase/client";
 import { demoStore } from "@/integrations/demo/store";
@@ -20,6 +20,14 @@ import { RoutineIntelligenceIndicator } from "@/components/intelligence/RoutineI
 import { ProgressAnalyticsBlock } from "@/components/intelligence/ProgressAnalyticsBlock";
 import { savePracticeResult, getLastPracticeResultForRoutine } from "@/lib/practiceResults";
 import { demoPracticeResults } from "@/lib/demoPracticeResults";
+import { saveTestResult, getLastTestResult } from "@/lib/testResults";
+import {
+  computeTestFinalScore,
+  computeTimeEfficiency,
+  getTestPerformanceTier,
+  getTierLabel,
+  type PerformanceTier,
+} from "@/utils/scoring";
 import type { PracticeMetrics } from "@/hooks/usePracticeMetrics";
 import {
   Dialog,
@@ -32,7 +40,6 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { requestGenerateAnimation } from "@/integrations/ai/video";
-import { Film } from "lucide-react";
 
 interface Flashcard {
   id: string;
@@ -77,8 +84,16 @@ export default function RoutineDetail() {
   const [existingSchedule, setExistingSchedule] = useState<Schedule | null>(null);
   const [showVideoDialog, setShowVideoDialog] = useState(false);
   const [showPracticeModal, setShowPracticeModal] = useState(false);
+  const [showTestModal, setShowTestModal] = useState(false);
   const [showSessionSummary, setShowSessionSummary] = useState(false);
+  const [showTestSummary, setShowTestSummary] = useState(false);
   const [lastPracticeMetrics, setLastPracticeMetrics] = useState<PracticeMetrics | null>(null);
+  const [lastTestResult, setLastTestResult] = useState<{
+    finalScore: number;
+    tier: PerformanceTier;
+    metrics: PracticeMetrics;
+  } | null>(null);
+  const [historicalTestScore, setHistoricalTestScore] = useState<number | undefined>(undefined);
   const [lastEngagementForRoutine, setLastEngagementForRoutine] = useState<number | null>(null);
   const [hdJobId, setHdJobId] = useState<string | null>(null);
   const [hdStatus, setHdStatus] = useState<string | null>(null);
@@ -96,6 +111,8 @@ export default function RoutineDetail() {
     { value: 5, label: "Fri" },
     { value: 6, label: "Sat" },
   ];
+
+  const currentCard = flashcards[currentStep];
 
   const fetchRoutineData = useCallback(async () => {
     if (!id) return;
@@ -180,6 +197,23 @@ export default function RoutineDetail() {
     }
   }, [id, useDemoStore, user?.id]);
 
+  useEffect(() => {
+    if (!currentCard?.title) {
+      setHistoricalTestScore(undefined);
+      return;
+    }
+    if (useDemoStore) {
+      const raw = localStorage.getItem("rb_demo_test_results");
+      const list = raw ? JSON.parse(raw) : [];
+      const match = list.find((r: any) => r.activity_type === currentCard.title);
+      setHistoricalTestScore(match?.final_score);
+    } else if (user?.id) {
+      getLastTestResult(user.id, currentCard.title).then((r) => {
+        setHistoricalTestScore(r?.final_score);
+      });
+    }
+  }, [currentCard?.title, useDemoStore, user?.id]);
+
   const handlePracticeComplete = async (metrics: PracticeMetrics) => {
     const currentCard = flashcards[currentStep];
     setLastPracticeMetrics(metrics);
@@ -203,6 +237,35 @@ export default function RoutineDetail() {
       });
       if ("error" in res) toast.error(res.error);
       else setLastEngagementForRoutine(Math.round((metrics.engagementScore + metrics.motionScore) / 2));
+    }
+  };
+
+  const handleTestComplete = async (metrics: PracticeMetrics) => {
+    const currentCard = flashcards[currentStep];
+    const timeEfficiency = computeTimeEfficiency(metrics.totalTimeSec, 15, 120);
+    const finalScore = computeTestFinalScore(
+      metrics.engagementScore,
+      metrics.motionScore,
+      timeEfficiency
+    );
+    const tier = getTestPerformanceTier(finalScore);
+
+    setLastTestResult({ finalScore, tier, metrics });
+    setShowTestModal(false);
+    setShowTestSummary(true);
+
+    if (!demoMode && user?.id && id && currentCard) {
+      const res = await saveTestResult({
+        userId: user.id,
+        activityType: currentCard.title,
+        engagement: metrics.engagementScore,
+        motionAccuracy: metrics.motionScore,
+        timeEfficiency,
+        finalScore,
+        performanceTier: tier,
+        totalTimeSec: metrics.totalTimeSec,
+      });
+      if ("error" in res) toast.error(res.error);
     }
   };
 
@@ -319,8 +382,6 @@ export default function RoutineDetail() {
       </div>
     );
   }
-
-  const currentCard = flashcards[currentStep];
 
   return (
     <ProtectedRoute>
@@ -461,10 +522,19 @@ export default function RoutineDetail() {
                           <Video className="w-4 h-4 mr-2" />
                           Practice
                         </Button>
+                        <Button
+                          variant="secondary"
+                          className="rounded-2xl h-12 font-fredoka w-full mt-2"
+                          onClick={() => setShowTestModal(true)}
+                        >
+                          <Award className="w-4 h-4 mr-2" />
+                          Test
+                        </Button>
                         <AITipSnippet />
                         <FlashcardIntelligenceSnippet
                           stepIndex={currentStep}
                           totalSteps={flashcards.length}
+                          testScore={historicalTestScore}
                           className="mt-4"
                         />
                       </div>
@@ -543,6 +613,20 @@ export default function RoutineDetail() {
           </div>
         )}
 
+        {/* Test modal */}
+        {showTestModal && currentCard && (
+          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[100] animate-fade-in p-4">
+            <div className="bg-background rounded-2xl shadow-2xl w-full max-w-lg p-6 animate-scale-in">
+              <h3 className="text-lg font-fredoka mb-4">Test: {currentCard.title}</h3>
+              <WebcamComponent
+                activityLabel="Test"
+                onPracticeComplete={handleTestComplete}
+                onSkip={() => setShowTestModal(false)}
+              />
+            </div>
+          </div>
+        )}
+
         {/* Session summary after practice */}
         {showSessionSummary && lastPracticeMetrics && (
           <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[100] animate-fade-in p-4">
@@ -554,6 +638,48 @@ export default function RoutineDetail() {
                   setLastPracticeMetrics(null);
                 }}
               />
+            </div>
+          </div>
+        )}
+
+        {/* Test summary after test */}
+        {showTestSummary && lastTestResult && (
+          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[100] animate-fade-in p-4">
+            <div className="w-full max-w-sm">
+              <Card className="rounded-[2rem] border-2 border-primary/20 overflow-hidden shadow-vibrant">
+                <CardContent className="p-8 space-y-6">
+                  <div className="text-center">
+                    <Award className="w-16 h-16 mx-auto text-primary mb-4" />
+                    <h2 className="text-2xl font-fredoka text-slate-900">
+                      Test complete
+                    </h2>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-muted/50 rounded-xl p-4 text-center">
+                      <p className="text-xs text-muted-foreground">Final score</p>
+                      <p className="text-3xl font-fredoka text-primary">
+                        {lastTestResult.finalScore}
+                      </p>
+                    </div>
+                    <div className="bg-muted/50 rounded-xl p-4 text-center">
+                      <p className="text-xs text-muted-foreground">Tier</p>
+                      <p className="text-xl font-fredoka">
+                        {getTierLabel(lastTestResult.tier)}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    size="lg"
+                    className="w-full rounded-2xl font-fredoka"
+                    onClick={() => {
+                      setShowTestSummary(false);
+                      setLastTestResult(null);
+                    }}
+                  >
+                    Done
+                  </Button>
+                </CardContent>
+              </Card>
             </div>
           </div>
         )}

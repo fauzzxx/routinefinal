@@ -5,40 +5,53 @@ export interface FlashcardIntelligenceSnippetProps {
   totalSteps?: number;
   /** Optional: time on card in seconds for simulated response time */
   timeOnCardSec?: number;
+  /** Optional: actual test score from a completed test session */
+  testScore?: number;
   className?: string;
 }
 
-function deriveRecallStrength(step: number, total: number): string {
-  if (total <= 0) return "Medium";
+function deriveRecallStrength(score?: number, step?: number, total?: number): string {
+  if (score !== undefined) {
+    if (score >= 90) return "Expert";
+    if (score >= 75) return "Strong";
+    if (score >= 50) return "Medium";
+    return "Building";
+  }
+  if (step === undefined || total === undefined || total <= 0) return "Medium";
   const pct = (step / total) * 100;
   if (pct < 33) return "Building";
   if (pct < 66) return "Medium";
   return "Strong";
 }
 
-function deriveRetentionPrediction(step: number, total: number): number {
-  if (total <= 0) return 75;
+function deriveRetentionPrediction(score?: number, step?: number, total?: number): number {
+  if (score !== undefined) {
+    return Math.min(99, Math.round(score * 0.9 + 10));
+  }
+  if (step === undefined || total === undefined || total <= 0) return 75;
   return Math.min(95, 70 + Math.round((step / total) * 25) + (step % 2 === 0 ? 3 : 0));
 }
 
 function deriveResponseTimeMessage(timeSec?: number): string {
-  if (timeSec === undefined || timeSec < 5) return "Response time improved";
-  if (timeSec < 15) return "Steady response time";
-  return "Take your time—quality over speed";
+  if (timeSec === undefined) return "AI monitoring focus";
+  if (timeSec < 5) return "Lightning-fast recall!";
+  if (timeSec < 15) return "Steady and focused response";
+  return "Taking your time—quality over speed";
 }
 
 /**
- * Flashcard flow: adaptive intelligence signals (simulated from step/timing).
- * Does not change flashcard algorithm or logic.
+ * Flashcard flow: adaptive intelligence signals.
+ * Uses test scores if available, else falls back to simulated progress.
  */
 export function FlashcardIntelligenceSnippet({
-  stepIndex = 0,
-  totalSteps = 1,
+  stepIndex,
+  totalSteps,
   timeOnCardSec,
+  testScore,
   className = "",
 }: FlashcardIntelligenceSnippetProps) {
-  const recall = deriveRecallStrength(stepIndex, totalSteps);
-  const retention = deriveRetentionPrediction(stepIndex, totalSteps);
+  const recall = deriveRecallStrength(testScore, stepIndex, totalSteps);
+  const retention = deriveRetentionPrediction(testScore, stepIndex, totalSteps);
   const responseMsg = deriveResponseTimeMessage(timeOnCardSec);
 
   return (
@@ -52,7 +65,11 @@ export function FlashcardIntelligenceSnippet({
         {" · "}
         Memory retention prediction: <span className="font-medium text-foreground">{retention}%</span>
       </p>
-      <p className="italic">Smart suggestion: Revisit this card tomorrow for best retention.</p>
+      <p className="italic">
+        {testScore !== undefined
+          ? "Based on your latest test results."
+          : "Smart suggestion: Revisit this card tomorrow for best retention."}
+      </p>
     </div>
   );
 }

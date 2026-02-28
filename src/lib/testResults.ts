@@ -33,3 +33,20 @@ export async function saveTestResult(
   if (error) return { error: error.message };
   return { id: data.id };
 }
+
+export async function getLastTestResult(
+  userId: string,
+  activityType: string
+) {
+  const { data, error } = await supabase
+    .from("test_results")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("activity_type", activityType)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) return null;
+  return data;
+}

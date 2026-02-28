@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Navigation } from "@/components/Navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Volume2, Play, ChevronLeft, ChevronRight, Video, Film } from "lucide-react";
+import { Volume2, Play, ChevronLeft, ChevronRight, Video, Film, Award } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { requestGenerateAnimation } from "@/integrations/ai/video";
@@ -22,6 +22,14 @@ import { RoutineIntelligenceIndicator } from "@/components/intelligence/RoutineI
 import { ProgressAnalyticsBlock } from "@/components/intelligence/ProgressAnalyticsBlock";
 import { savePracticeResult, getLastPracticeResultForRoutine } from "@/lib/practiceResults";
 import { demoPracticeResults } from "@/lib/demoPracticeResults";
+import { saveTestResult, getLastTestResult } from "@/lib/testResults";
+import {
+  computeTestFinalScore,
+  computeTimeEfficiency,
+  getTestPerformanceTier,
+  getTierLabel,
+  type PerformanceTier,
+} from "@/utils/scoring";
 import type { PracticeMetrics } from "@/hooks/usePracticeMetrics";
 
 interface Flashcard {
@@ -52,8 +60,16 @@ export default function Child() {
   const [isLoading, setIsLoading] = useState(true);
   const [showVideoDialog, setShowVideoDialog] = useState(false);
   const [showPracticeModal, setShowPracticeModal] = useState(false);
+  const [showTestModal, setShowTestModal] = useState(false);
   const [showSessionSummary, setShowSessionSummary] = useState(false);
+  const [showTestSummary, setShowTestSummary] = useState(false);
   const [lastPracticeMetrics, setLastPracticeMetrics] = useState<PracticeMetrics | null>(null);
+  const [lastTestResult, setLastTestResult] = useState<{
+    finalScore: number;
+    tier: PerformanceTier;
+    metrics: PracticeMetrics;
+  } | null>(null);
+  const [historicalTestScore, setHistoricalTestScore] = useState<number | undefined>(undefined);
   const [lastEngagementForRoutine, setLastEngagementForRoutine] = useState<number | null>(null);
   const [loadingRecording, setLoadingRecording] = useState(false);
   const demoMode = (String(import.meta.env.VITE_DEMO_MODE).toLowerCase() === 'true') || !isSupabaseConfigured;
@@ -115,7 +131,10 @@ export default function Child() {
     fetchScheduledRoutines();
   }, [fetchScheduledRoutines]);
 
+  const currentRoutine = routines[currentRoutineIndex];
+  const currentCard = currentRoutine?.flashcards?.[currentStep];
   const currentRoutineId = routines[currentRoutineIndex]?.id;
+
   useEffect(() => {
     if (!currentRoutineId) {
       setLastEngagementForRoutine(null);
@@ -132,6 +151,24 @@ export default function Child() {
       setLastEngagementForRoutine(null);
     }
   }, [currentRoutineId, useDemoStore, user?.id]);
+
+  useEffect(() => {
+    if (!currentCard?.title) {
+      setHistoricalTestScore(undefined);
+      return;
+    }
+    if (useDemoStore) {
+      // For demo, we can just use a random score or look at local storage
+      const raw = localStorage.getItem("rb_demo_test_results");
+      const list = raw ? JSON.parse(raw) : [];
+      const match = list.find((r: any) => r.activity_type === currentCard.title);
+      setHistoricalTestScore(match?.final_score);
+    } else if (user?.id) {
+      getLastTestResult(user.id, currentCard.title).then((r) => {
+        setHistoricalTestScore(r?.final_score);
+      });
+    }
+  }, [currentCard?.title, useDemoStore, user?.id]);
 
   const handlePracticeComplete = async (metrics: PracticeMetrics) => {
     setLastPracticeMetrics(metrics);
@@ -155,6 +192,34 @@ export default function Child() {
       });
       if ("error" in res) toast.error(res.error);
       else setLastEngagementForRoutine(Math.round((metrics.engagementScore + metrics.motionScore) / 2));
+    }
+  };
+
+  const handleTestComplete = async (metrics: PracticeMetrics) => {
+    const timeEfficiency = computeTimeEfficiency(metrics.totalTimeSec, 15, 120);
+    const finalScore = computeTestFinalScore(
+      metrics.engagementScore,
+      metrics.motionScore,
+      timeEfficiency
+    );
+    const tier = getTestPerformanceTier(finalScore);
+
+    setLastTestResult({ finalScore, tier, metrics });
+    setShowTestModal(false);
+    setShowTestSummary(true);
+
+    if (!demoMode && user?.id && currentCard) {
+      const res = await saveTestResult({
+        userId: user.id,
+        activityType: currentCard.title,
+        engagement: metrics.engagementScore,
+        motionAccuracy: metrics.motionScore,
+        timeEfficiency,
+        finalScore,
+        performanceTier: tier,
+        totalTimeSec: metrics.totalTimeSec,
+      });
+      if ("error" in res) toast.error(res.error);
     }
   };
 
@@ -263,9 +328,6 @@ export default function Child() {
       </ProtectedRoute>
     );
   }
-
-  const currentRoutine = routines[currentRoutineIndex];
-  const currentCard = currentRoutine?.flashcards?.[currentStep];
 
   if (!currentCard) {
     return (
@@ -385,11 +447,21 @@ export default function Child() {
                       <Video className="w-5 h-5 sm:w-6 sm:h-6 mr-2 shrink-0" />
                       Practice
                     </Button>
+                    <Button
+                      size="lg"
+                      variant="secondary"
+                      onClick={() => setShowTestModal(true)}
+                      className="flex-1 min-w-[7rem] rounded-2xl h-14 font-fredoka text-lg shadow-cartoon"
+                    >
+                      <Award className="w-5 h-5 sm:w-6 sm:h-6 mr-2 shrink-0" />
+                      Test
+                    </Button>
                   </div>
                   <AITipSnippet />
                   <FlashcardIntelligenceSnippet
                     stepIndex={currentStep}
                     totalSteps={currentRoutine.flashcards?.length ?? 0}
+                    testScore={historicalTestScore}
                     className="mt-4"
                   />
                 </CardContent>
@@ -462,6 +534,20 @@ export default function Child() {
         </div>
       )}
 
+      {/* Test modal with webcam */}
+      {showTestModal && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 animate-fade-in p-4">
+          <div className="bg-background rounded-2xl shadow-2xl w-full max-w-lg p-6 animate-scale-in">
+            <h3 className="text-lg font-fredoka mb-4">Test: {currentCard?.title}</h3>
+            <WebcamComponent
+              activityLabel="Test"
+              onPracticeComplete={handleTestComplete}
+              onSkip={() => setShowTestModal(false)}
+            />
+          </div>
+        </div>
+      )}
+
       {/* Session summary after practice */}
       {showSessionSummary && lastPracticeMetrics && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 animate-fade-in p-4">
@@ -473,6 +559,48 @@ export default function Child() {
                 setLastPracticeMetrics(null);
               }}
             />
+          </div>
+        </div>
+      )}
+
+      {/* Test summary after test */}
+      {showTestSummary && lastTestResult && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 animate-fade-in p-4">
+          <div className="w-full max-w-sm">
+            <Card className="rounded-[2rem] border-2 border-primary/20 overflow-hidden shadow-vibrant">
+              <CardContent className="p-8 space-y-6">
+                <div className="text-center">
+                  <Award className="w-16 h-16 mx-auto text-primary mb-4" />
+                  <h2 className="text-2xl font-fredoka text-slate-900">
+                    Test complete
+                  </h2>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-muted/50 rounded-xl p-4 text-center">
+                    <p className="text-xs text-muted-foreground">Final score</p>
+                    <p className="text-3xl font-fredoka text-primary">
+                      {lastTestResult.finalScore}
+                    </p>
+                  </div>
+                  <div className="bg-muted/50 rounded-xl p-4 text-center">
+                    <p className="text-xs text-muted-foreground">Tier</p>
+                    <p className="text-xl font-fredoka">
+                      {getTierLabel(lastTestResult.tier)}
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  size="lg"
+                  className="w-full rounded-2xl font-fredoka"
+                  onClick={() => {
+                    setShowTestSummary(false);
+                    setLastTestResult(null);
+                  }}
+                >
+                  Done
+                </Button>
+              </CardContent>
+            </Card>
           </div>
         </div>
       )}

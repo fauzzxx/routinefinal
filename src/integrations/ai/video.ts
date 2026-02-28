@@ -22,12 +22,12 @@ export async function requestGenerateAnimation(
     } catch {
       /* use text as-is */
     }
-    if (
+    const isServerlessError =
       res.status >= 500 ||
-      /FUNCTION_INVOCATION_FAILED|server error|invocation failed/i.test(message)
-    ) {
+      /FUNCTION_INVOCATION_FAILED|invocation failed|A server error has occurred/i.test(message);
+    if (isServerlessError) {
       message =
-        "Video service unavailable. Run the app with a local backend (npm run server) or ensure api/recordings is deployed.";
+        "Video service isn't available on this deployment. Use the app locally (npm run server + npm run dev) for \"Generate AI video\" to work.";
     }
     throw new Error(message || `Failed to generate video (${res.status})`);
   }
