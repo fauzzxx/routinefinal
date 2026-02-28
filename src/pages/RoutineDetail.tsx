@@ -10,6 +10,7 @@ import { demoStore } from "@/integrations/demo/store";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/hooks/useAuth";
+import { useRewards } from "@/contexts/RewardContext";
 import { WebcamComponent } from "@/components/webcam/WebcamComponent";
 import { SessionSummaryCard } from "@/components/intelligence/SessionSummaryCard";
 import { EngagementSnippet } from "@/components/intelligence/EngagementSnippet";
@@ -71,6 +72,7 @@ export default function RoutineDetail() {
   const navigate = useNavigate();
   const { t } = useLanguage();
   const { user } = useAuth();
+  const { addPoints } = useRewards();
   const [searchParams] = useSearchParams();
   const showScheduleDialog = searchParams.get("schedule") === "true";
 
@@ -219,6 +221,7 @@ export default function RoutineDetail() {
     setLastPracticeMetrics(metrics);
     setShowPracticeModal(false);
     setShowSessionSummary(true);
+    addPoints(5); // Gamification reward
     if (useDemoStore) {
       demoPracticeResults.add(
         metrics.engagementScore,
@@ -253,6 +256,7 @@ export default function RoutineDetail() {
     setLastTestResult({ finalScore, tier, metrics });
     setShowTestModal(false);
     setShowTestSummary(true);
+    addPoints(10); // Higher reward for test
 
     if (!demoMode && user?.id && id && currentCard) {
       const res = await saveTestResult({

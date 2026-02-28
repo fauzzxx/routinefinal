@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Users, BookOpen, LogOut, Home, Calendar, CheckSquare } from "lucide-react";
+import { Sparkles, Users, BookOpen, LogOut, Home, Calendar, CheckSquare, ShoppingBag } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { LanguageSelector } from "@/components/LanguageSelector";
@@ -62,6 +62,18 @@ export const Navigation = () => {
               <Button variant="ghost" size="sm" className="gap-2">
                 <CheckSquare className="w-4 h-4" />
                 <span className="hidden sm:inline">To-Do</span>
+              </Button>
+            </Link>
+            <Link to="/shop">
+              <Button variant="ghost" size="sm" className="gap-2">
+                <ShoppingBag className="w-4 h-4 text-orange-500" />
+                <span className="hidden sm:inline">Shop</span>
+              </Button>
+            </Link>
+            <Link to="/stories">
+              <Button variant="ghost" size="sm" className="gap-2">
+                <BookOpen className="w-4 h-4 text-secondary" />
+                <span className="hidden sm:inline">Stories</span>
               </Button>
             </Link>
           </div>

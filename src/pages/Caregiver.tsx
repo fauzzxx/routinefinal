@@ -12,7 +12,9 @@ import {
   Clock,
   Heart,
   Trash2,
-  Calendar
+  Calendar,
+  Stethoscope,
+  ChevronRight
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -176,15 +178,19 @@ export default function Caregiver() {
               </div>
             </div>
 
-            {/* Hero Promo Banner (Image 1 center) */}
+            {/* Hero Promo Banner (Social Stories) */}
             <div className="mb-10 animate-scale-in">
-              <div className="bg-secondary rounded-[2rem] p-6 text-white relative overflow-hidden shadow-vibrant">
+              <div
+                onClick={() => navigate("/stories")}
+                className="bg-secondary rounded-[2rem] p-6 text-white relative overflow-hidden shadow-vibrant cursor-pointer transition-transform hover:scale-[1.02] active:scale-95"
+              >
                 <div className="relative z-10 max-w-[60%]">
                   <h2 className="text-xl font-fredoka mb-3 leading-tight">
-                    Educate Theme Right
+                    New: AI Social Stories
                   </h2>
+                  <p className="text-xs opacity-90 mb-4">Create personalized emoji stories with narration for your child.</p>
                   <Button variant="outline" className="bg-white text-secondary border-none rounded-xl h-9 text-xs font-bold hover:bg-white/90">
-                    Learn More
+                    Create Now
                   </Button>
                 </div>
                 <div className="absolute right-[-20px] bottom-[-20px] w-48 h-48 opacity-20 bg-white rounded-full" />
@@ -192,6 +198,23 @@ export default function Caregiver() {
                   📖
                 </div>
               </div>
+            </div>
+
+            {/* Therapist Assistant Panel Link */}
+            <div
+              onClick={() => navigate("/therapist")}
+              className="mb-6 bg-white p-6 rounded-[2rem] border-2 border-indigo-100 flex items-center justify-between cursor-pointer hover:bg-indigo-50/50 transition-all group shadow-sm"
+            >
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-indigo-100 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <Stethoscope className="text-indigo-600 w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="font-fredoka text-slate-900">Therapist Assistant</h3>
+                  <p className="text-xs text-slate-500">Get AI-driven therapeutic analysis</p>
+                </div>
+              </div>
+              <ChevronRight className="w-5 h-5 text-indigo-300" />
             </div>
 
             {/* AI Insight Panel */}
@@ -207,7 +230,13 @@ export default function Caregiver() {
             <section className="mb-10 animate-slide-in-up">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-fredoka">Chelid Activity</h3>
-                <Button variant="link" className="text-primary font-fredoka text-sm">View All</Button>
+                <Button
+                  variant="link"
+                  className="text-primary font-fredoka text-sm"
+                  onClick={() => navigate('/analytics')}
+                >
+                  View Stats
+                </Button>
               </div>
               <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar -mx-4 px-4">
                 {isLoading ? (

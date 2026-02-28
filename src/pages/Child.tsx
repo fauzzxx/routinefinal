@@ -3,7 +3,8 @@ import { useState, useEffect, useCallback } from "react";
 import { Navigation } from "@/components/Navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Volume2, Play, ChevronLeft, ChevronRight, Video, Film, Award } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Volume2, Play, ChevronLeft, ChevronRight, Video, Film, Award, ShoppingBag, Coins, Star, Flame, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { requestGenerateAnimation } from "@/integrations/ai/video";
@@ -12,10 +13,12 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/hooks/useAuth";
 import { isSupabaseConfigured } from "@/integrations/supabase/client";
+import { useRewards } from "@/contexts/RewardContext";
 import { WebcamComponent } from "@/components/webcam/WebcamComponent";
 import { SessionSummaryCard } from "@/components/intelligence/SessionSummaryCard";
 import { EngagementSnippet } from "@/components/intelligence/EngagementSnippet";
 import { AITipSnippet } from "@/components/intelligence/AITipSnippet";
+import { AvatarCustomizer } from "@/components/AvatarCustomizer";
 import { FlashcardIntelligenceSnippet } from "@/components/intelligence/FlashcardIntelligenceSnippet";
 import { IntelligenceBadge } from "@/components/intelligence/IntelligenceBadge";
 import { RoutineIntelligenceIndicator } from "@/components/intelligence/RoutineIntelligenceIndicator";
@@ -277,13 +280,24 @@ export default function Child() {
     }
   };
 
+  const { points, stars, streak, addPoints, completeRoutine } = useRewards();
+
   const handleNextStep = () => {
     const currentRoutine = routines[currentRoutineIndex];
+    addPoints(5); // Task completion reward
+
     if (currentStep < (currentRoutine?.flashcards?.length || 0) - 1) {
       setCurrentStep(currentStep + 1);
-    } else if (currentRoutineIndex < routines.length - 1) {
-      setCurrentRoutineIndex(currentRoutineIndex + 1);
-      setCurrentStep(0);
+    } else {
+      completeRoutine(); // Routine completion reward (points + star)
+      if (currentRoutineIndex < routines.length - 1) {
+        setCurrentRoutineIndex(currentRoutineIndex + 1);
+        setCurrentStep(0);
+      } else {
+        toast.success("All routines for today completed! Great job!", {
+          icon: "🌟",
+        });
+      }
     }
   };
 
@@ -344,6 +358,32 @@ export default function Child() {
 
         <main className="pt-20 px-4 sm:px-6 lg:px-8">
           <div className="container mx-auto max-w-lg">
+            {/* Reward HUD & Shop */}
+            <div className="flex justify-between items-center mb-6 px-2">
+              <Link to="/shop">
+                <Button variant="outline" className="rounded-2xl gap-2 font-fredoka border-2 border-primary/20 text-primary hover:bg-white shadow-sm transition-all hover:scale-105 active:scale-95">
+                  <ShoppingBag className="w-5 h-5" />
+                  Shop
+                </Button>
+              </Link>
+              <div className="flex gap-3">
+                <div className="flex items-center gap-1.5 bg-white/80 px-4 py-2 rounded-2xl border border-white shadow-sm">
+                  <Coins className="w-5 h-5 text-yellow-500" />
+                  <span className="font-fredoka text-slate-700">{points}</span>
+                </div>
+                <div className="flex items-center gap-1.5 bg-white/80 px-4 py-2 rounded-2xl border border-white shadow-sm">
+                  <Star className="w-5 h-5 text-secondary" />
+                  <span className="font-fredoka text-slate-700">{stars}</span>
+                </div>
+                {streak > 0 && (
+                  <div className="flex items-center gap-1.5 bg-white/80 px-4 py-2 rounded-2xl border border-white shadow-sm animate-pulse-slow">
+                    <Flame className="w-5 h-5 text-orange-500" />
+                    <span className="font-fredoka text-slate-700">{streak}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
             {/* Image 2 style "EXERCISES" header */}
             <div className="text-center mb-6 animate-fade-in-down">
               <h1 className="text-2xl font-fredoka text-slate-800 uppercase tracking-widest mb-4">
@@ -357,17 +397,32 @@ export default function Child() {
                 <button className="px-6 py-2 rounded-xl text-sm font-bold text-slate-500">Month</button>
               </div>
 
-              {/* Sun Character Illustration (Image 2 style) */}
-              <div className="relative w-48 h-48 mx-auto mb-6">
-                <div className="absolute inset-0 bg-yellow-400 rounded-full animate-pulse-slow shadow-[0_0_50px_rgba(250,204,21,0.4)]" />
-                <div className="absolute inset-4 bg-yellow-300 rounded-full flex items-center justify-center text-6xl">
-                  😊
-                </div>
-                {/* Sun rays */}
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-4 w-4 h-8 bg-yellow-400 rounded-full" />
-                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-4 w-4 h-8 bg-yellow-400 rounded-full" />
-                <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 w-8 h-4 bg-yellow-400 rounded-full" />
-                <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 w-8 h-4 bg-yellow-400 rounded-full" />
+              <AvatarCustomizer className="mb-6 scale-125" />
+            </div>
+
+            {/* Feature 2: Visual Routine Tracker */}
+            <div className="bg-white/60 backdrop-blur-sm rounded-[2rem] p-6 mb-8 border border-white shadow-sm transition-all hover:shadow-md animate-fade-in">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-fredoka text-slate-700">Routine Progress</h3>
+                <span className="text-sm font-fredoka text-slate-500">{Math.round(((currentStep + 1) / (currentRoutine.flashcards?.length || 1)) * 100)}%</span>
+              </div>
+              <div className="w-full h-3 bg-slate-200/50 rounded-full overflow-hidden mb-6">
+                <div
+                  className="h-full bg-primary transition-all duration-700 ease-out"
+                  style={{ width: `${((currentStep + 1) / (currentRoutine.flashcards?.length || 1)) * 100}%` }}
+                />
+              </div>
+              <div className="space-y-2">
+                {currentRoutine.flashcards?.map((step, idx) => (
+                  <div key={step.id} className={`flex items-center gap-3 p-3 rounded-2xl transition-all ${idx <= currentStep ? 'bg-primary/5 border-primary/20 border' : 'bg-slate-50/50 border-transparent border'}`}>
+                    <div className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs ${idx < currentStep ? 'bg-green-500 text-white' : idx === currentStep ? 'bg-primary text-white animate-pulse' : 'bg-slate-200 text-slate-400'}`}>
+                      {idx < currentStep ? <CheckCircle2 className="w-4 h-4" /> : idx + 1}
+                    </div>
+                    <span className={`font-medium truncate ${idx < currentStep ? 'text-slate-400 line-through' : idx === currentStep ? 'text-slate-900 border-b-2 border-primary/30' : 'text-slate-500'}`}>
+                      {step.title}
+                    </span>
+                  </div>
+                ))}
               </div>
             </div>
 
