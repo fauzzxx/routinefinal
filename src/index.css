@@ -138,6 +138,47 @@ All colors MUST be HSL.
   }
 }
 
+/* Global button normalization: no overflow, consistent size, accessible */
+@layer components {
+  button,
+  [role="button"],
+  .btn {
+    min-height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding-left: 1rem;
+    padding-right: 1rem;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: opacity 0.2s, background-color 0.2s;
+  }
+  button:disabled,
+  [role="button"][aria-disabled="true"],
+  .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  button:not(:disabled):hover,
+  [role="button"]:not([aria-disabled="true"]):hover,
+  .btn:not(:disabled):hover {
+    opacity: 0.95;
+  }
+  .btn-primary {
+    @apply bg-primary text-primary-foreground;
+  }
+  .btn-secondary {
+    @apply bg-secondary text-secondary-foreground;
+  }
+  .btn-danger {
+    @apply bg-destructive text-destructive-foreground;
+  }
+}
+
 @keyframes slideInUp {
   from {
     opacity: 0;

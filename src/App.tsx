@@ -17,6 +17,8 @@ import Shop from "./pages/Shop";
 import SocialStories from "./pages/SocialStories";
 import Analytics from "./pages/Analytics";
 import TherapistAssistant from "./pages/TherapistAssistant";
+import ParentDashboard from "./features/analytics/ParentDashboard";
+import TherapistPanel from "./features/admin/TherapistPanel";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -42,6 +44,8 @@ const App = () => (
               <Route path="/stories" element={<SocialStories />} />
               <Route path="/analytics" element={<Analytics />} />
               <Route path="/therapist" element={<TherapistAssistant />} />
+              <Route path="/features/analytics" element={<ParentDashboard />} />
+              <Route path="/features/admin" element={<TherapistPanel />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
